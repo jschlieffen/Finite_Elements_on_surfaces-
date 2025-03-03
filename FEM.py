@@ -32,15 +32,10 @@ class FEM:
             for t2_id,t2 in t1.get_neighbors():
                 if t2_id != t1_id:
                     common_neigbours = self.surface.check_common_neighbours(t1_id, t2_id)
-                    #print(common_neigbours)
                     for t3_id, t3 in common_neigbours:
                         if t1_id != t3_id and t2_id != t3_id:
-                            #index = [str(idx) + '_' for idx in sorted([t1_id,t2_id,t3_id])][0]
                             index = '_'.join(str(idx) for idx in sorted([t1_id,t2_id,t3_id]))
-                
-                            #print(index)
                             if index not in self.triangles.keys():
-                                #print('test')
                                 self.triangles[index] = Triangle(t1.get_coordinates(),
                                                                  t2.get_coordinates(), 
                                                                  t3.get_coordinates())
@@ -50,63 +45,32 @@ class FEM:
         for t_id,triangle in self.triangles.items():
             if triangle.diameter > self.h:
                 self.h = triangle.diameter
-        print(self.h)
                 
     def calc_n(self):
         self.n = len(self.surface.vert_dict)
     
     def calc_A(self):
         i = 0
-        #print(self.A)
         test_it_i = 0
         for v_id,v in self.surface.vert_dict.items():
             v_i = v.get_coordinates()
             j = 0
-           # print(v_i)
             for w_id,w in self.surface.vert_dict.items():
                 
                 test_it_j = 0
                 v_j = w.get_coordinates()
-               # print(v_j)
                 for triangle_index, triangle in self.triangles.items():
-                    #print('for i,j = ',i,j)
-                    #print('\n')
-                    #print(np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
-                    #print('\n')
-                    #print((triangle.Grad_chi_v(v_i)))
-                    #print(triangle)
-                    #print('A: ', triangle.chi_v(v_i, triangle.v1))
-                    #print('B: ', triangle.chi_v(v_i, triangle.v2))
-                    #print('B: ', triangle.chi_v(v_i, triangle.v3))
                     if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
                         if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
                             self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
-                    #if v.check_if_adjacent(w_id):
-                        #print('test')
-                        #self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
-                    #print('i,j = ',i,j)
-                    #print('res: ', np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
-                    #print('i,j = ', i,j)
-                    #print(triangle_index)
-                    #print(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j))
-                    #print('\n')
                 j += 1
             i += 1
-            print(i)
 
     #edit before FEM
     def f(self, A):
         x,y,z = A
         normal_x,normal_y,normal_z = self.surface.normal_vector(x,y,z)
-        #level_set = self.level_set(x,y,z)
-        #level_set_x,level_set_y,level_set_z = level_set
-        #print(normal_x, normal_y, normal_z)
         mean_curvature = self.surface.mean_curvature(x, y, z)
-        #print(mean_curvature)
-        #print('mean curvature: ',mean_curvature)
-        #print('normal x: ', normal_x)
-        #print('normal y: ', normal_y)
-        #print('normal z: ', normal_z)
         return 2*normal_x*normal_y + mean_curvature*(y*normal_x + x*normal_y)
     
     
@@ -114,17 +78,11 @@ class FEM:
     
     def calc_rhs(self):
         i = 0
-        #print('calc_rhs')
         for v_index, v in self.surface.vert_dict.items():
             res = 0
             for triangle_index, triangle in self.triangles.items():
                 A, B ,C = triangle.v1,triangle.v2, triangle.v3
                 v_i = v.get_coordinates()
-                #print(v_i)
-                #print(((self.f(A)*triangle.chi_v(v_i,A))/6))
-                #print((self.f(B)*triangle.chi_v(v_i,B))/6)
-                #print((self.f(C)*triangle.chi_v(v_i,C))/6)
-                #print('\n')
                 res_prev = res
                 sq_det_G = (triangle.det_G)**(1/2)
                 if triangle.chi_v(v_i,A):
@@ -164,16 +122,9 @@ class FEM:
                 #print('f: ', self.f(A))
                 #print('\n')
             self.rhs[i] = res
-            if self.rhs[i] > 5:
-                print(self.rhs[i])
-                print(i)
             i += 1
-            print(i)
             
     def solve_sytem(self,A,F):
-        #print(A)
-        print('test')
-        #print(A == np.zeros((self.n,self.n)))
         return np.linalg.solve(A,F)
     
     def only_surface_refinement(self):
@@ -237,22 +188,17 @@ class Triangle:
         second_sum = np.dot(self.v2 - self.v1, self.v3 - self.v1)*(self.chi_v(v,self.v3) - self.chi_v(v, self.v1))*(self.v2 - self.v1) 
         third_sum = np.dot(self.v2 - self.v1, self.v3 - self.v1)*(self.chi_v(v,self.v2) - self.chi_v(v, self.v1))*(self.v3 - self.v1) 
         fourth_sum = np.dot(self.v2 - self.v1, self.v2 - self.v1)*(self.chi_v(v, self.v3) - self.chi_v(v, self.v1))*(self.v3 - self.v1)
-        #print('first:  ',first_sum)
-        #print('second: ',second_sum)
-        #print('third:  ',third_sum)
-        #print('fourth: ',fourth_sum)
-        #print('res:    ',(first_sum - second_sum - third_sum + fourth_sum))
         return (1/self.det_G)* (first_sum - second_sum - third_sum + fourth_sum)
     
 
+# =============================================================================
+# TODO
+# =============================================================================
 class error_calc:
     
     def __init__(self):
         self.surface = Tr.Surface(0)
-        
-    
-
-    
+            
     def grad_ana_sol(self,x,y,z):
         return None
     

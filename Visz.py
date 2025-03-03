@@ -72,15 +72,12 @@ class Plot_surface:
     def create_plot_function(self):
         X,Y,Z = self.define_mesh()
         F = self.level_set_fct(X, Y, Z)
-        #points_func = self.calc_func_vals(F)
-        
         threshold = 0.05
         points = np.abs(F) < threshold 
         x_surface = X[points]
         y_surface = Y[points]
         z_surface = Z[points]
         points_func = self.func(x_surface,y_surface,z_surface)
-        #points_func = np.abs
         fig = go.Figure(data=[go.Scatter3d(
             x=x_surface, 
             y=y_surface, 
@@ -193,7 +190,6 @@ class Plot_Discrete_surface:
     
     def create_plot_func_values(self):
         x,y,z,Node_ids = self.create_node_list()
-        #func_vals = self.create_func_val_list()
         scatter = go.Scatter3d(
             x=x,
             y=y,

@@ -40,8 +40,8 @@ def start_plots_discrete_surface():
         path = path + '/'
     Visz.Plot_Discrete_surface(FEM_cls.surface.vert_dict, path + 'discrete_FEM_surface_' + str(FEM_cls.surface.num_vertices) + '.html',
                                FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs),path +'discrete_FEM_function_surface_' + str(FEM_cls.surface.num_vertices) +'.html' )
+
 def start_FEM_algorithm():
-    #step_FEM_algorithm()
     for i in range(1,6):
         print('refinement Number: ' + str(i))
         FEM_cls.surface_refinement()
