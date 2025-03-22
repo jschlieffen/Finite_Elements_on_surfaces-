@@ -9,6 +9,16 @@ Created on Thu Feb 20 21:35:09 2025
 import plotly.graph_objects as go
 import numpy as np
 
+# =============================================================================
+# This file is used to create a 3D Plot for the given surface, the function on
+# the surface, the discrete surface an the numerical solution on the 
+# discrete surface
+# =============================================================================
+
+
+# =============================================================================
+# This class is used 
+# =============================================================================
 class Plot_surface:
     
     def __init__(self,lvl_set_fct,treshold, num_points,title_surface,title_func_plot,function):
