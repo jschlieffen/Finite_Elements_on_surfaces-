@@ -10,6 +10,15 @@ import numpy as np
 import Triangulation as Tr
 import Visz
 
+# =============================================================================
+# This class computes the FEM method on surfaces. It will use the triangulation
+# computed in the file Triangulation.py and then proceed to calculate the matrix
+# A. Currently it iterates through all triangles, but this will be changed due 
+# to the high amount of calculation time. After computing the matrix, it will 
+# compute the rhs. The formulas for the normal vector and the mean curvature
+# of the surface are calculated by hand and can be found in the file Triangulation.py
+# To solve the linear system we use the numpy libary.
+# =============================================================================
 class FEM:
     
     def __init__(self):
@@ -91,36 +100,6 @@ class FEM:
                     res += sq_det_G*((self.f(B)*triangle.chi_v(v_i,B))/6)
                 elif triangle.chi_v(v_i,C):
                     res += sq_det_G*((self.f(C)*triangle.chi_v(v_i,C))/6) 
-                #res += sq_det_G*(((self.f(A)*triangle.chi_v(v_i,A))/6) + ((self.f(B)*triangle.chi_v(v_i,B))/6) + ((self.f(C)*triangle.chi_v(v_i,C))/6)) 
-                #print(res)
-                '''
-                if i == 14:
-                    if res != res_prev:
-
-                        print('änderung')
-                        print(res)
-                        print(triangle.chi_v(v_i,A))
-                        print(sq_det_G)
-                        x,y,z = A
-                        der_x, der_y, der_z = self.surface.gradient_level_set_fct(x, y, z)
-                        der_x_x, der_x_y, der_x_z, der_y_x, der_y_y, der_y_z, der_z_x, der_z_y, der_z_z = self.surface.Hessian_lvl_set_fct(x, y, z)
-                        print('der x :', der_x)
-                        print('der y :', der_y)
-                        print('der z: ', der_z)
-                        print('der x x :', der_x_x)
-                        print('der x z :', der_x_z)
-                        print('der y y :', der_y_y)
-                        print('der z x :', der_z_x)
-                        print('der z z :' , der_z_z)
-                        print(A)
-                        print('normed gradient: ', np.linalg.norm(self.surface.gradient_level_set_fct(x,y,z)))
-                        print(self.surface.normal_vector(x,y,z))
-                        print('mean curvature: ',self.surface.mean_curvature(x,y,z))
-                '''
-                #print('v_i: ', v_i)
-                #print('A: ', A)
-                #print('f: ', self.f(A))
-                #print('\n')
             self.rhs[i] = res
             i += 1
             
@@ -146,7 +125,11 @@ class FEM:
     def ana_sol(self,x,y,z):
         return x*y
         
-
+# =============================================================================
+# This class is used to describe a triangle. Its attributes consists of important
+# functions for the FEM method such as the Gradient of a given hat-function 
+# over the triangle
+# =============================================================================
 class Triangle:
     
     def __init__(self,v1,v2,v3):
@@ -207,7 +190,11 @@ class error_calc:
     
     def h1_error(self,u,u_h):
         return None
-    
+
+# =============================================================================
+# Function to execute the main functions of the file and print it.
+# Used for debugging purposes.
+# =============================================================================
 def main():
     FEM_cls = FEM()
     

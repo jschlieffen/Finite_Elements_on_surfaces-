@@ -12,6 +12,25 @@ import os
 import platform as pt
 import numpy as np
 
+# =============================================================================
+# TODOs: 1. implement error estimates 
+#        2. improve the calculation of the matrix A in terms of runtime ´.
+#        3. use multithreading for the calculation of A
+#        4. implement monotoring
+#        5. Get rid of the dependence of the concrete surface.
+#        6. implement UI for the execution.
+# =============================================================================
+
+
+# =============================================================================
+# This file is the main executable file for executing the different functions 
+# this source code provides. It does five of refinements and FEM algorithms
+# If you wish to only refine the surface replace line 54 with
+# FEM_cls.only_surface_refinement(). This may be helpfull since the calculation
+# of the coefficient matrix A may take some time. 
+# (For 1538 vertices it took between 8-10 hours)
+# =============================================================================
+
 def start_plots_surface():
     dir = os.path.dirname(__file__)
     if pt.system() == 'Windows':

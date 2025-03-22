@@ -12,6 +12,12 @@ import Visz
 import math
 import sympy as sp
 
+
+# =============================================================================
+# This class is used to describe a single point of the Triangulated surface and
+# its edges .It attributes are functions, that are used through various 
+# parts of the source code.
+# =============================================================================
 class Node:
     def __init__(self, x,y,z):
         self.coordinates = np.array([x,y,z])
@@ -49,6 +55,13 @@ class Node:
         return False
 
 
+# =============================================================================
+# This class is used to describe a Triangulated surface. Hereby every Node is 
+# stored in a dictionary. The index is just a simple increment. (Note that the 
+# index is currently not lowered or "freed" after deleting a Node from the dict.)
+# Note: Certain functions are not used currently, since due to time constraints
+# I could not clean up the source code.
+# =============================================================================
 class Triangulation:
     def __init__(self):
         self.vert_dict = {}
@@ -171,7 +184,11 @@ class Triangulation:
             self.remove_vertex(vertex_id)
 
 
-    
+# =============================================================================
+# This class is used to calculate a Triangulation of the unit ball. This 
+# Triangulation could then be used to obtain a triangulation of the desired surface
+# by mapping the vertices on the surface.  
+# =============================================================================
 class Icosahedron(Triangulation):
     
     def __init__(self,create_surface_plot):
@@ -269,7 +286,11 @@ class Icosahedron(Triangulation):
     def level_set_fct_Unit_ball(self,x,y,z):
         return x**2 + y**2 + z**2 -1
 
-
+# =============================================================================
+# This class describes the surface and it's triangulation. It is inherited by the
+# class Triangulation. It contains both functions related to the surface,
+# such as mean_curvature but also the discrete surface such as refine.
+# =============================================================================
 class Surface(Triangulation):
     
     def __init__(self,plot_surface):

@@ -12,12 +12,18 @@ import numpy as np
 # =============================================================================
 # This file is used to create a 3D Plot for the given surface, the function on
 # the surface, the discrete surface an the numerical solution on the 
-# discrete surface
+# discrete surface. 
+# Note: This file does not use any properties of the surface nor the function
+# of the surface and thus it can be used to plot different surface
+#  However the structure of the triangulation should be contained,
+#  otherwise it may cause some troubles.
 # =============================================================================
 
 
 # =============================================================================
-# This class is used 
+# This class is used to create the surface plots. It can compute only the surface
+# aswell as a given funtion defined on this surface. The function has to be
+# defined by a level set function.
 # =============================================================================
 class Plot_surface:
     
@@ -103,6 +109,12 @@ class Plot_surface:
         fig.write_html(self.title_func_plot)
         #fig.show()
         
+
+# =============================================================================
+# This class is used to plot the triangulation of a surface. It can also
+# plot a discrete solution of the surface. One should use a trianguluation 
+# provided by the file Triangulation.py
+# =============================================================================
 class Plot_Discrete_surface:
     
     def __init__(self,vert_dict,title,func_vals, title_func_plot):
