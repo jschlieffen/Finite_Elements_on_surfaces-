@@ -11,10 +11,13 @@ import Visz
 import os 
 import platform as pt
 import numpy as np
+import time
 
 # =============================================================================
 # TODOs: 1. implement error estimates 
-#        2. improve the calculation of the matrix A in terms of runtime ´.
+#        2. improve the calculation of the matrix A in terms of runtime 
+#           partially done, check for bugs improved running time:
+#           ... min. previously, now: 30 seconds
 #        3. use multithreading for the calculation of A
 #        4. implement monotoring
 #        5. Get rid of the dependence of the concrete surface.
@@ -61,7 +64,7 @@ def start_plots_discrete_surface():
                                FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs),path +'discrete_FEM_function_surface_' + str(FEM_cls.surface.num_vertices) +'.html' )
 
 def start_FEM_algorithm():
-    for i in range(1,6):
+    for i in range(1,4):
         print('refinement Number: ' + str(i))
         FEM_cls.surface_refinement()
         step_FEM_algorithm()
@@ -86,8 +89,9 @@ def step_FEM_algorithm():
 def main():
     global FEM_cls
     FEM_cls = FEM.FEM()
+    start_time = time.time()
     start_plots_surface()
     start_FEM_algorithm()
-
+    print('exec time: ', time.time() - start_time)
 if __name__ == '__main__':
     main()

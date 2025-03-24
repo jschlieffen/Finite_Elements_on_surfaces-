@@ -60,13 +60,15 @@ class FEM:
     
     def calc_A(self):
         i = 0
-        test_it_i = 0
+        #test_it_i = 0
         for v_id,v in self.surface.vert_dict.items():
             v_i = v.get_coordinates()
             j = 0
             for w_id,w in self.surface.vert_dict.items():
-                
-                test_it_j = 0
+            #for w_id, w in v.get_neighbors():   
+                #test_it_j = 0
+                #print(v_id, ' ',w_id)
+                #if v_id == w_id or v.check_if_adjacent(w_id):
                 v_j = w.get_coordinates()
                 for triangle_index, triangle in self.triangles.items():
                     if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
@@ -163,8 +165,7 @@ class Triangle:
     def chi_v(self, v, x):
         if np.array_equal(v,x):
             return 1
-        else:
-            return 0
+        return 0
     
     def Grad_chi_v(self,v):
         first_sum = np.dot(self.v3 - self.v1, self.v3 - self.v1)*(self.chi_v(v, self.v2) - self.chi_v(v, self.v1))*(self.v2 - self.v1)
