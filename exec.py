@@ -17,7 +17,7 @@ import time
 # TODOs: 1. implement error estimates 
 #        2. improve the calculation of the matrix A in terms of runtime 
 #           partially done, check for bugs improved running time:
-#           ... min. previously, now: 30 seconds
+#           12.3 min. previously, now: 30 seconds
 #        3. use multithreading for the calculation of A
 #        4. implement monotoring
 #        5. Get rid of the dependence of the concrete surface.

@@ -68,12 +68,12 @@ class FEM:
             #for w_id, w in v.get_neighbors():   
                 #test_it_j = 0
                 #print(v_id, ' ',w_id)
-                #if v_id == w_id or v.check_if_adjacent(w_id):
-                v_j = w.get_coordinates()
-                for triangle_index, triangle in self.triangles.items():
-                    if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
-                        if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
-                            self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
+                if v_id == w_id or v.check_if_adjacent(w_id):
+                    v_j = w.get_coordinates()
+                    for triangle_index, triangle in self.triangles.items():
+                        if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
+                            if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
+                                self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
                 j += 1
             i += 1
 
