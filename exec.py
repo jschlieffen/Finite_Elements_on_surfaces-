@@ -30,8 +30,7 @@ import time
 # this source code provides. It does five of refinements and FEM algorithms
 # If you wish to only refine the surface replace line 54 with
 # FEM_cls.only_surface_refinement(). This may be helpfull since the calculation
-# of the coefficient matrix A may take some time. 
-# (For 1538 vertices it took between 8-10 hours)
+# of the coefficient matrix A may take some time. e
 # =============================================================================
 
 def start_plots_surface():

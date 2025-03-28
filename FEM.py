@@ -7,6 +7,7 @@ Created on Tue Dec 10 15:19:17 2024
 """
 
 import numpy as np
+import math
 import Triangulation as Tr
 import Visz
 
@@ -60,14 +61,10 @@ class FEM:
     
     def calc_A(self):
         i = 0
-        #test_it_i = 0
         for v_id,v in self.surface.vert_dict.items():
             v_i = v.get_coordinates()
             j = 0
             for w_id,w in self.surface.vert_dict.items():
-            #for w_id, w in v.get_neighbors():   
-                #test_it_j = 0
-                #print(v_id, ' ',w_id)
                 if v_id == w_id or v.check_if_adjacent(w_id):
                     v_j = w.get_coordinates()
                     for triangle_index, triangle in self.triangles.items():
@@ -86,7 +83,7 @@ class FEM:
     
     
 
-    
+    #TODO: improve
     def calc_rhs(self):
         i = 0
         for v_index, v in self.surface.vert_dict.items():
@@ -180,18 +177,106 @@ class Triangle:
 # =============================================================================
 class error_calc:
     
-    def __init__(self):
-        self.surface = Tr.Surface(0)
-            
-    def grad_ana_sol(self,x,y,z):
-        return None
+    def __init__(self, surface, triangles):
+        self.surface = surface
+        self.triangles = triangles
+    
+    def refine_of_surface(self, surface, triangles):
+        self.surface = surface
+        self.triangles = triangles
+    
+
+    
+    def calc_dS(self, v):
+        dS = 0
+        for triangle_index, triangle in self.triangles.items():
+            if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
+                dS += triangle.area
+        return dS
     
     def l2_error(self,u,u_h):
-        return None
+        l2_error = 0
+        i = 0
+        for v_id, v in self.surface.vert_dict.items():
+            v_i = v.get_coordinates()
+            dS = self.calc_dS(v_i)
+            x_i,y_i,z_i = v_i
+            dist = np.linalg.norm(u(x_i,y_i,z_i) - u_h[i])
+            l2_error += (dist**2)*dS  
+            i += 1
+            #test = self.grad_ana_sol(x_i,y_i,z_i )
+        return math.sqrt(l2_error)
     
-    def h1_error(self,u,u_h):
-        return None
+    def grad_ana_sol(self,x,y,z):
+        P = np.zeros((3,3))
+        normal_vector = self.surface.normal_vector(x, y, z)
+        for i in range(0,3):
+            for j in range(0,3):
+                if i == j:
+                    P[i][j] = 1 - normal_vector[i]*normal_vector[j]
+                else:
+                    P[i][j] = - normal_vector[i]*normal_vector[j]
+        grad_ana_sol = np.dot(P,np.array([y,x,0]))
+        print(grad_ana_sol)
+        #print('\n')
+        #print(np.dot(grad_ana_sol,normal_vector))
+        return grad_ana_sol
+    
+    def grad_disc_sol(self,u):
+        grad_disc_sol = 0
+        for v_id,v_i in self.surface.vert_dict.items():
+            v = v_i.get_coordinates()
+            x_v, y_v, z_v = v
+            for traingle_id,triangle in self.triangles.items():
+                if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
+                    #if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
+                        #print('')
+                    print(triangle.Grad_chi_v(v))
+                    print(u(x_v, y_v, z_v ))
+                        #print(x_v,', ', y_v, ', ', z_v)
+                    grad_disc_sol += u(x_v, y_v, z_v )* triangle.Grad_chi_v(v)
+        print('\n')
+        print(grad_disc_sol)
+        print('\n')
+        return grad_disc_sol     
+        
+    def grad_disc_sol_v2(self,u_h,x):
+        grad_chi_sum = 0
+        i = 0
+        for triangle_index, triangle in self.triangles.items():
+            if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
+                i+=1
+                grad_chi_sum += triangle.Grad_chi_v(x)
+        x_i, y_i, z_i = x
+        grad_disc_sol = u_h*grad_chi_sum
+        print(grad_disc_sol)
+        print(i)
+        return grad_disc_sol
 
+    #TODO: use FD and tangential gradient formulation of the h1 seminorm instead of nodal-basis representation of u_h
+    def h1_error(self,u_h,l2_error):
+        h1_semi_error = 0
+        i = 0
+        #grad_disc_sol = self.grad_disc_sol(u)
+        for v_id, v in self.surface.vert_dict.items():
+            v_i = v.get_coordinates()
+            dS = self.calc_dS(v_i)
+            x_i,y_i,z_i = v_i
+            dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i) - self.grad_disc_sol_v2(u_h[i],v_i))
+            #dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i))
+            h1_semi_error += (dist**2)*dS  
+            print(h1_semi_error)
+            print(dS)
+            print('\n')
+            i += 1
+            #test = self.grad_ana_sol(x_i,y_i,z_i )
+        h1_semi_error = math.sqrt(h1_semi_error)
+        #return math.sqrt(l2_error)
+        print(h1_semi_error)
+        h1_error = math.sqrt((l2_error)**2 + (h1_semi_error)**2)
+        return h1_error
+        
+        
 # =============================================================================
 # Function to execute the main functions of the file and print it.
 # Used for debugging purposes.
@@ -203,8 +288,8 @@ def main():
     FEM_cls.only_surface_refinement()
     print('second refinement')
     FEM_cls.only_surface_refinement()
-    print('third refinement')
-    FEM_cls.only_surface_refinement()
+    #print('third refinement')
+    #FEM_cls.only_surface_refinement()
     print('fourth refinement')
     FEM_cls.surface_refinement()
     '''
@@ -221,11 +306,11 @@ def main():
     print('\n coeff matrix: \n')
     print(FEM_cls.A)
     print('\n rhs: \n')
-    print(FEM_cls.rhs)
+    #print(FEM_cls.rhs)
     print('numerical solution: \n')
-    print('is symmetric: ', np.allclose(FEM_cls.A, FEM_cls.A.T))
+    #print('is symmetric: ', np.allclose(FEM_cls.A, FEM_cls.A.T))
     print('detereminant: ', np.linalg.det(FEM_cls.A))
-    print(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs))
+    #print(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs))
     ana_sol = np.zeros((FEM_cls.n,1))
     i = 0
     for v_id,v in FEM_cls.surface.vert_dict.items():
@@ -233,8 +318,16 @@ def main():
         ana_sol[i] = x*y
         i += 1
     print('\n ana sol \n')
-    print(ana_sol)
-    Visz.Plot_Discrete_surface(FEM_cls.surface.vert_dict, 'discrete_FEM_surface.html', FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs),'discrete_FEM_function_surface_refinement.html' )
+    #print(ana_sol)
+    print('\n')
+    Error_estimates = error_calc(FEM_cls.surface, FEM_cls.triangles)
+    #l2_error = Error_estimates.l2_error(FEM_cls.ana_sol,FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs))
+    #h1_error= Error_estimates.h1_error(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs), l2_error)
+    #h1_error= Error_estimates.h1_error(FEM_cls.ana_sol, l2_error)
+    #print(l2_error)
+    #print(h1_error)
+    #print(FEM_cls.surface.num_vertices)
+    #Visz.Plot_Discrete_surface(FEM_cls.surface.vert_dict, 'discrete_FEM_surface.html', FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs),'discrete_FEM_function_surface_refinement.html' )
 
 if __name__ == '__main__':
     main()
