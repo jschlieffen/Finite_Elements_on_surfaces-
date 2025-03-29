@@ -187,7 +187,7 @@ class error_calc:
         self.triangles = triangles
     
 
-    
+    #TODO: debug
     def calc_dS(self, v):
         dS = 0
         for triangle_index, triangle in self.triangles.items():
@@ -246,22 +246,31 @@ class error_calc:
     
     
     
-    def grad_disc_sol_v2(self,u_h,x):
+    def grad_disc_sol_v2(self,u_h,x_node,x_id):
         grad_chi_sum = 0
         i = 0
-        for triangle_index, triangle in self.triangles.items():
-            if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
-                i+=1
-                grad_chi_sum += triangle.Grad_chi_v(x)
+        x = x_node.get_coordinates()
+        for v_id,v in self.surface.vert_dict.items():
+            if v_id == x_id or x_node.check_if_adjacent(v_id):
+                v_i = v.get_coordinates()
+                for triangle_index, triangle in self.triangles.items():
+                    if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
+                        if np.array_equal(v_i, triangle.v1) or  np.array_equal(v_i, triangle.v2) or  np.array_equal(v_i, triangle.v3):
+                            grad_chi_sum += u_h[i]*triangle.Grad_chi_v(v_i)
+            i += 1
+        #j = 0
+        #for v_id,v in self.surface.vert_dict.items():
+            #if v.check_if_adjacent(w_id):
+                
         x_i, y_i, z_i = x
-        grad_disc_sol = u_h*grad_chi_sum
+        grad_disc_sol = grad_chi_sum
         print(grad_disc_sol)
         print(i)
         return grad_disc_sol
     
     #TODO: check if calculation is correct
     def grad_disc_sol_v3(self,u_h,x):
-        grad_chi_sum = np.zeros(3)
+        grad_disc_sol = np.zeros(3)
         i = 0
         for triangle_index, triangle in self.triangles.items():
             if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
@@ -272,13 +281,14 @@ class error_calc:
                 delta_x = (y2 - y3)/(2*area)
                 delta_y = (z2 - z3)/(2*area)
                 delta_z = (x2 - x3)/(2*area)
-                grad_chi_sum += np.array([delta_x,delta_y,delta_z])
+                grad_disc_sol += u_h[i]*np.array([delta_x,delta_y,delta_z])
                 #print(type(grad_chi_sum))
                 #print(grad_chi_sum.ndim)
-        grad_disc_sol = u_h* grad_chi_sum
-        print(u_h)
-        print(x)
-        print(grad_disc_sol)
+                i+=1
+        #grad_disc_sol = grad_chi_sum
+        #print(u_h)
+        #print(x)
+        #print(grad_disc_sol)
         return grad_disc_sol
         
     def project_grad2surf(self,grad_disc_sol,grad_ana_sol,x,y,z):
@@ -294,7 +304,7 @@ class error_calc:
         grad_proj = np.dot(P,grad_sum)            
         return grad_proj
         
-    #TODO: use FD and tangential gradient formulation of the h1 seminorm instead of nodal-basis representation of u_h
+    #TODO: check calculation of dS, it is zero at some points, what should not be the case
     def h1_error(self,u_h,l2_error):
         h1_semi_error = 0
         i = 0
@@ -303,12 +313,12 @@ class error_calc:
             v_i = v.get_coordinates()
             dS = self.calc_dS(v_i)
             x_i,y_i,z_i = v_i
-            #dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i) - self.grad_disc_sol_v2(u_h[i],v_i))
+            dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i) - self.grad_disc_sol_v2(u_h,v,v_id))
             #dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i))
-            grad_ana_sol = self.grad_ana_sol(x_i,y_i,z_i)
-            grad_disc_sol = self.grad_disc_sol_v3(u_h[i], v_i)
-            grad_proj = self.project_grad2surf(grad_disc_sol, grad_ana_sol, x_i,y_i,z_i)
-            dist = np.linalg.norm(grad_proj)
+            #grad_ana_sol = self.grad_ana_sol(x_i,y_i,z_i)
+            #grad_disc_sol = self.grad_disc_sol_v3(u_h, v_i)
+            #grad_proj = self.project_grad2surf(grad_disc_sol, grad_ana_sol, x_i,y_i,z_i)
+            #dist = np.linalg.norm(grad_proj)
             h1_semi_error += (dist**2)*dS  
             print(h1_semi_error)
             print(dS)
@@ -321,6 +331,8 @@ class error_calc:
         h1_error = math.sqrt((l2_error)**2 + (h1_semi_error)**2)
         return h1_error
         
+    def calc_OOC(self,error_prev,error_now,diam_prev,diam_now):
+        return (math.log2(error_now/error_prev))/(math.log2(diam_now/diam_prev))
         
 # =============================================================================
 # Function to execute the main functions of the file and print it.
@@ -368,9 +380,20 @@ def main():
     Error_estimates = error_calc(FEM_cls.surface, FEM_cls.triangles)
     l2_error = Error_estimates.l2_error(FEM_cls.ana_sol,FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs))
     h1_error= Error_estimates.h1_error(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs), l2_error)
+    diam = FEM_cls.h
     #h1_error= Error_estimates.h1_error(FEM_cls.ana_sol, l2_error)
     #print(l2_error)
+    
+    FEM_cls.surface_refinement()
+    l2_error_new = Error_estimates.l2_error(FEM_cls.ana_sol,FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs))
+    h1_error_new = Error_estimates.h1_error(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs), l2_error)
+    diam_new = FEM_cls.h
+    OOC_l2 = Error_estimates.calc_OOC(l2_error, l2_error_new, diam, diam_new)
+    OOC_h1 = Error_estimates.calc_OOC(h1_error, h1_error_new, diam, diam_new)
+    print(OOC_l2)
+    print(OOC_h1)
     print(h1_error)
+    print(h1_error_new)
     #print(FEM_cls.surface.num_vertices)
     #Visz.Plot_Discrete_surface(FEM_cls.surface.vert_dict, 'discrete_FEM_surface.html', FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs),'discrete_FEM_function_surface_refinement.html' )
 
