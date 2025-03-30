@@ -14,11 +14,12 @@ import numpy as np
 import time
 
 # =============================================================================
-# TODOs: 1. implement error estimates 
+# TODOs: 1. implement error estimates partially done, check for h1 estimate
 #        2. improve the calculation of the matrix A in terms of runtime 
 #           partially done, check for bugs improved running time:
 #           12.3 min. previously, now: 30 seconds
 #        3. use multithreading for the calculation of A
+#           partially done, check for race conditions and optimize task management
 #        4. implement monotoring
 #        5. Get rid of the dependence of the concrete surface.
 #        6. implement UI for the execution.

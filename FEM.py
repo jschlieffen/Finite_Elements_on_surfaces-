@@ -10,6 +10,10 @@ import numpy as np
 import math
 import Triangulation as Tr
 import Visz
+import concurrent.futures
+import threading
+import time
+from multiprocessing import Pool, Manager, Array, Lock
 
 # =============================================================================
 # This class computes the FEM method on surfaces. It will use the triangulation
@@ -34,6 +38,11 @@ class FEM:
         self.calc_rhs()
         self.A = np.zeros((self.n, self.n))
         self.calc_A()
+        self.A_w_threads = np.zeros((self.n, self.n))
+        #self.locks = np.array([threading.Lock() for _ in range(self.n)])
+        self.calc_A_with_threads()
+        self.test_time_wo_threads = 0
+        self.test_time_w_threads = 0
 
 
     def get_triangles(self):
@@ -75,6 +84,117 @@ class FEM:
                 j += 1
             i += 1
 
+    def calculate_matrix_entries(self,i,v_id,v):
+        #print('test')
+        try:
+            with self.locks[i]:
+                v_i = v.get_coordinates()
+                j = 0
+                #print(i)
+                for w_id,w in self.surface.vert_dict.items():
+                    if v_id == w_id or v.check_if_adjacent(w_id):
+                        
+                            v_j = w.get_coordinates()
+                            for triangle_index, triangle in self.triangles.items():
+                                if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
+                                    if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
+            
+                                        self.A_w_threads[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
+                    j += 1
+        except Exception as e:
+            print(f"Error in thread for vertex {v_id}: {e}")
+    
+            
+    def calc_A_with_threads_v2(self):
+        
+        i = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            futures = []
+            for v_id,v in self.surface.vert_dict.items():
+                futures.append(executor.submit(self.calculate_matrix_entries,i,v_id,v))
+                i += 1
+                #print(i)
+    
+            #wait until all threads are finished        
+            for future in futures:
+                future.result() 
+        print('calculation succeeded')
+        
+    
+    def calculate_matrix_entries_parallel(self,i, v_id, v,n , A_w_threads):
+        
+        #i, v_id, v, n, triangles, surface_vertices, A_w_threads, lock = args
+        print(i)
+        v_i = v.get_coordinates()
+        # Your logic for matrix calculation goes here, using the shared triangles and surface
+        for j, (w_id, w) in enumerate(self.surface.vert_dict.items()):
+            #print(j, 'test')
+            #print(w_id)
+            #print(w)
+            if v_id == w_id or v.check_if_adjacent(w_id):
+                
+                v_j = w.get_coordinates()
+                for triangle_index, triangle in self.triangles.items():
+                    
+                    if triangle.chi_v(v_i, triangle.v1) or triangle.chi_v(v_i, triangle.v2) or triangle.chi_v(v_i, triangle.v3):
+                        #print('iiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+                        if triangle.chi_v(v_j, triangle.v1) or triangle.chi_v(v_j, triangle.v2) or triangle.chi_v(v_j, triangle.v3):
+                            # Update shared data
+                            #print(i)
+                            
+                            #print(index)
+                            index = i * n + j
+                            #A_w_threads[index] += (np.dot(triangle.Grad_chi_v(v), triangle.Grad_chi_v(v_j)) * triangle.area)
+                            #print(A_w_threads[i][j])
+                            #if index >= 0 and index < n * n:
+                                #A_w_threads[index] += (np.dot(triangle.Grad_chi_v(v), triangle.Grad_chi_v(v_j)) * triangle.area)
+                            #else:
+                                #print(f"Index {index} is out of bounds for A_w_threads.")
+                            #+if 0 <= index < len(A_w_threads):
+                                # Use the lock to ensure thread-safe updates to shared memory
+                            val = (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
+                            #with lock:
+                            A_w_threads[index] += val
+                                #print('test')
+                            #else:
+                                #print(f"Warning: Index {index} out of bounds!")
+                                #return  # Exit early to avoid any further issues
+
+    #TODO:optimize source code, such that this will be faster than the sequentiell implementation
+    # make that each thread is created exaclty once, remove lock if possible and create and give each thread a min. number of matrix rows 
+    # maybe I need pathos.multithreading or joblib, when I try to execute the threads
+    def calc_A_with_threads(self):
+        #A_w_threads = Array('d', self.n * self.n, lock=True)  # 'd' indicates double (float64), lock=False to avoid synchronization overhead
+        #print(len(self.surface.vert_dict.items()))
+        #print(self.n)
+        #print(len(A_w_threads))
+        #lock = Lock()
+        with Manager() as manager:
+            # Use manager to create shared objects
+            #surface_shared = manager.dict(self.surface.vert_dict)  # Share surface's dictionary content
+            #triangles_shared = manager.dict(self.triangles)  # Share triangles dictionary
+            A_w_threads = manager.list([0]*(self.n*self.n))
+            #lock = manager.Lock()
+            # Shared data structure for results
+            A_w_threads = manager.list(A_w_threads)  
+            print('test')
+            chunks = [
+                (i, v_id, v, self.n, A_w_threads) 
+                for i, (v_id, v) in enumerate(self.surface.vert_dict.items())
+            ]
+            print('test2')
+            with Pool(processes=6) as pool:
+                pool.starmap(self.calculate_matrix_entries_parallel,chunks)
+            
+            #A_w_threads_np = np.frombuffer(A_w_threads.get_obj()).reshape((self.n, self.n))
+            #self.A_w_threads = list(A_w_threads)  # Convert back the manager list to a regular list
+            A_w_threads_np = np.array(list(A_w_threads)).reshape((self.n, self.n))
+            
+            
+        self.A_w_threads = A_w_threads_np
+        print('calculation succeeded')
+        #print(self.A_w_threads)
+        
     #edit before FEM
     def f(self, A):
         x,y,z = A
@@ -120,7 +240,15 @@ class FEM:
         self.rhs = np.zeros((self.n,1))
         self.calc_rhs()
         self.A = np.zeros((self.n, self.n))
+        start_time_wo_threads = time.time()
         self.calc_A()
+        end_time_wo_threads = time.time()
+        self.A_w_threads = np.zeros((self.n, self.n))
+        #self.locks = np.array([threading.Lock() for _ in range(self.n)])
+        self.calc_A_with_threads()
+        end_time_w_threads = time.time()
+        self.test_time_wo_threads = end_time_wo_threads - start_time_wo_threads
+        self.test_time_w_threads = end_time_w_threads - end_time_wo_threads
         
     def ana_sol(self,x,y,z):
         return x*y
@@ -218,7 +346,7 @@ class error_calc:
                 else:
                     P[i][j] = - normal_vector[i]*normal_vector[j]
         grad_ana_sol = np.dot(P,np.array([y,x,0]))
-        print(grad_ana_sol)
+        #print(grad_ana_sol)
         #print('\n')
         #print(np.dot(grad_ana_sol,normal_vector))
         return grad_ana_sol
@@ -235,13 +363,13 @@ class error_calc:
                 if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
                     #if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
                         #print('')
-                    print(triangle.Grad_chi_v(v))
-                    print(u(x_v, y_v, z_v ))
+                    #print(triangle.Grad_chi_v(v))
+                    #print(u(x_v, y_v, z_v ))
                         #print(x_v,', ', y_v, ', ', z_v)
                     grad_disc_sol += u(x_v, y_v, z_v )* triangle.Grad_chi_v(v)
-        print('\n')
-        print(grad_disc_sol)
-        print('\n')
+        #print('\n')
+        #print(grad_disc_sol)
+        #print('\n')
         return grad_disc_sol     
     
     
@@ -264,8 +392,8 @@ class error_calc:
                 
         x_i, y_i, z_i = x
         grad_disc_sol = grad_chi_sum
-        print(grad_disc_sol)
-        print(i)
+        #print(grad_disc_sol)
+        #print(i)
         return grad_disc_sol
     
     #TODO: check if calculation is correct
@@ -320,14 +448,14 @@ class error_calc:
             #grad_proj = self.project_grad2surf(grad_disc_sol, grad_ana_sol, x_i,y_i,z_i)
             #dist = np.linalg.norm(grad_proj)
             h1_semi_error += (dist**2)*dS  
-            print(h1_semi_error)
-            print(dS)
-            print('\n')
+            #print(h1_semi_error)
+            #print(dS)
+            #print('\n')
             i += 1
             #test = self.grad_ana_sol(x_i,y_i,z_i )
         h1_semi_error = math.sqrt(h1_semi_error)
         #return math.sqrt(l2_error)
-        print(h1_semi_error)
+        #print(h1_semi_error)
         h1_error = math.sqrt((l2_error)**2 + (h1_semi_error)**2)
         return h1_error
         
@@ -385,6 +513,7 @@ def main():
     #print(l2_error)
     
     FEM_cls.surface_refinement()
+    Error_estimates.refine_of_surface(FEM_cls.surface, FEM_cls.triangles)
     l2_error_new = Error_estimates.l2_error(FEM_cls.ana_sol,FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs))
     h1_error_new = Error_estimates.h1_error(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs), l2_error)
     diam_new = FEM_cls.h
@@ -397,5 +526,35 @@ def main():
     #print(FEM_cls.surface.num_vertices)
     #Visz.Plot_Discrete_surface(FEM_cls.surface.vert_dict, 'discrete_FEM_surface.html', FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs),'discrete_FEM_function_surface_refinement.html' )
 
+def main_V2():
+    FEM_cls = FEM()
+    equals_arr = []
+    time_arr = []
+    for i in range(0,4):
+        FEM_cls.surface_refinement()
+        #time_start_wo_threads = time.time()
+        A_wo_threads = FEM_cls.A
+        #time_end_wo_threads = time.time()
+        A_w_threads = FEM_cls.A_w_threads
+        #time_end_w_threads = time.time()
+        is_equal = np.array_equal(A_wo_threads, A_w_threads)
+        #print(A_w_threads)
+        print('is equal: ', is_equal )
+        #time_wo_threads = time_end_wo_threads - time_start_wo_threads
+        #time_w_threads = time_end_w_threads - time_end_wo_threads
+        time_wo_threads = FEM_cls.test_time_wo_threads
+        time_w_threads = FEM_cls.test_time_w_threads
+        equals_arr.append(is_equal)
+        time_arr.append((time_wo_threads, time_w_threads))
+    
+    print('\n')
+    
+    for i in range(0,4):
+        print('First refinement')
+        print('matrices are equal: ', equals_arr[0])
+        print('Time without threads: ', time_arr[i][0])
+        print('Time with threads: ', time_arr[i][1])
+
 if __name__ == '__main__':
-    main()
+    #main()
+    main_V2()
