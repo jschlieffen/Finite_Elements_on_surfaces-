@@ -77,9 +77,12 @@ class FEM:
             for w_id,w in self.surface.vert_dict.items():
                 if v_id == w_id or v.check_if_adjacent(w_id):
                     v_j = w.get_coordinates()
+                    #count = 0
                     for triangle_index, triangle in self.triangles.items():
                         if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
                             if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
+                                #count += 1
+                                #print(count)
                                 self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
                 j += 1
             i += 1
@@ -245,7 +248,7 @@ class FEM:
         end_time_wo_threads = time.time()
         self.A_w_threads = np.zeros((self.n, self.n))
         #self.locks = np.array([threading.Lock() for _ in range(self.n)])
-        self.calc_A_with_threads()
+        #self.calc_A_with_threads()
         end_time_w_threads = time.time()
         self.test_time_wo_threads = end_time_wo_threads - start_time_wo_threads
         self.test_time_w_threads = end_time_w_threads - end_time_wo_threads
@@ -312,14 +315,20 @@ class error_calc:
     
     def refine_of_surface(self, surface, triangles):
         self.surface = surface
+        
+        #print(self.surface.num_vertices)
         self.triangles = triangles
     
 
     #TODO: debug
     def calc_dS(self, v):
         dS = 0
+        count = 0
         for triangle_index, triangle in self.triangles.items():
             if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
+                #count += 1
+                #print(count)
+                
                 dS += triangle.area
         return dS
     
@@ -336,7 +345,7 @@ class error_calc:
             #test = self.grad_ana_sol(x_i,y_i,z_i )
         return math.sqrt(l2_error)
     
-    def grad_ana_sol_prj(self,x,y,z):
+    def grad_ana_sol_proj(self,x,y,z):
         P = np.zeros((3,3))
         normal_vector = self.surface.normal_vector(x, y, z)
         for i in range(0,3):
@@ -346,6 +355,9 @@ class error_calc:
                 else:
                     P[i][j] = - normal_vector[i]*normal_vector[j]
         grad_ana_sol = np.dot(P,np.array([y,x,0]))
+        #print(normal_vector)
+        #print(P)
+        #print(f'x: {x}, y: {y}, z: {z}')
         #print(grad_ana_sol)
         #print('\n')
         #print(np.dot(grad_ana_sol,normal_vector))
@@ -375,23 +387,56 @@ class error_calc:
     
     
     def grad_disc_sol_v2(self,u_h,x_node,x_id):
-        grad_chi_sum = 0
+        #print('new_it')
         i = 0
         x = x_node.get_coordinates()
+        grad_disc_sol = np.zeros(3)
         for v_id,v in self.surface.vert_dict.items():
+            grad_chi_sum = np.zeros(3)
             if v_id == x_id or x_node.check_if_adjacent(v_id):
                 v_i = v.get_coordinates()
+                count = 0
+                triangle_meas = 0
                 for triangle_index, triangle in self.triangles.items():
                     if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
+                        triangle_meas += triangle.area
                         if np.array_equal(v_i, triangle.v1) or  np.array_equal(v_i, triangle.v2) or  np.array_equal(v_i, triangle.v3):
-                            grad_chi_sum += u_h[i]*triangle.Grad_chi_v(v_i)
+                            
+                            grad_chi_sum +=triangle.Grad_chi_v(v_i)*triangle.area
+                            count += 1
+                            #print('\n')
+                            #print(triangle.Grad_chi_v(v_i))
+                            #print(triangle.area)
+                            #print(triangle.Grad_chi_v(v_i)*triangle.area)
+                            #print('\n')
+
+                            #print(f'count {count} , triangle area: {triangle.area}, triangle meas {triangle_meas}')
+                            #print(f'count {count}, u_h {u_h[i]}, grad chi {triangle.Grad_chi_v(v_i)}, grad_chi_sum {grad_chi_sum}, u(x) {u_x}')
+                #print('look')
+                #print(grad_chi_sum)
+                #print(triangle_meas)
+                #print(u_h[i])
+                #print(v_i)
+                grad_chi_sum /= triangle_meas
+                #print(grad_chi_sum)
+                #print('\n')
+                grad_disc_sol += u_h[i]*grad_chi_sum
+                #if x_id == v_id:
+                    #print(triangle_meas)
+                #print(u_h[i])
+                #print(v_i)
+                #print(grad_chi_sum)
+                #print(u_h[i]*grad_chi_sum)
+               # print('\n')
+                   
             i += 1
+            
         #j = 0
         #for v_id,v in self.surface.vert_dict.items():
             #if v.check_if_adjacent(w_id):
-                
+        #print(x)     
         x_i, y_i, z_i = x
-        grad_disc_sol = grad_chi_sum
+        #grad_disc_sol = grad_chi_sum
         #print(grad_disc_sol)
         #print(i)
         return grad_disc_sol
@@ -441,7 +486,7 @@ class error_calc:
             v_i = v.get_coordinates()
             dS = self.calc_dS(v_i)
             x_i,y_i,z_i = v_i
-            dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i) - self.grad_disc_sol_v2(u_h,v,v_id))
+            dist = np.linalg.norm(self.grad_ana_sol_proj(x_i,y_i,z_i) - self.grad_disc_sol_v2(u_h,v,v_id))
             #dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i))
             #grad_ana_sol = self.grad_ana_sol(x_i,y_i,z_i)
             #grad_disc_sol = self.grad_disc_sol_v3(u_h, v_i)
@@ -450,18 +495,21 @@ class error_calc:
             h1_semi_error += (dist**2)*dS  
             #print(h1_semi_error)
             #print(dS)
+            #print(h1_semi_error)
+            #print(self.grad_disc_sol_v2(u_h,v,v_id)
             #print('\n')
             i += 1
+            
             #test = self.grad_ana_sol(x_i,y_i,z_i )
         h1_semi_error = math.sqrt(h1_semi_error)
         #return math.sqrt(l2_error)
         #print(h1_semi_error)
-        h1_error = math.sqrt((l2_error)**2 + (h1_semi_error)**2)
-        return h1_error
+        #h1_error = math.sqrt((l2_error)**2 + (h1_semi_error)**2)
+        return h1_semi_error
         
     def calc_OOC(self,error_prev,error_now,diam_prev,diam_now):
-        return (math.log2(error_now/error_prev))/(math.log2(diam_now/diam_prev))
-        
+        #return (math.log2(error_now/error_prev))/(math.log2(diam_now/diam_prev))
+        return (math.log2(error_prev/error_now))/(math.log2(diam_prev/diam_now))
 # =============================================================================
 # Function to execute the main functions of the file and print it.
 # Used for debugging purposes.
@@ -472,7 +520,7 @@ def main():
     print('first refinement')
     FEM_cls.only_surface_refinement()
     print('second refinement')
-    FEM_cls.only_surface_refinement()
+    #FEM_cls.only_surface_refinement()
     print('third refinement')
     #FEM_cls.only_surface_refinement()
     print('fourth refinement')
@@ -511,11 +559,14 @@ def main():
     diam = FEM_cls.h
     #h1_error= Error_estimates.h1_error(FEM_cls.ana_sol, l2_error)
     #print(l2_error)
-    
+    print(h1_error)
+
+    print('test')
     FEM_cls.surface_refinement()
+    print('calc error estimates')
     Error_estimates.refine_of_surface(FEM_cls.surface, FEM_cls.triangles)
     l2_error_new = Error_estimates.l2_error(FEM_cls.ana_sol,FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs))
-    h1_error_new = Error_estimates.h1_error(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs), l2_error)
+    h1_error_new = Error_estimates.h1_error(FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs), l2_error_new)
     diam_new = FEM_cls.h
     OOC_l2 = Error_estimates.calc_OOC(l2_error, l2_error_new, diam, diam_new)
     OOC_h1 = Error_estimates.calc_OOC(h1_error, h1_error_new, diam, diam_new)
@@ -525,7 +576,8 @@ def main():
     print(h1_error_new)
     #print(FEM_cls.surface.num_vertices)
     #Visz.Plot_Discrete_surface(FEM_cls.surface.vert_dict, 'discrete_FEM_surface.html', FEM_cls.solve_sytem(FEM_cls.A, FEM_cls.rhs),'discrete_FEM_function_surface_refinement.html' )
-
+    print(Error_estimates.surface.num_vertices)
+    
 def main_V2():
     FEM_cls = FEM()
     equals_arr = []
@@ -556,5 +608,5 @@ def main_V2():
         print('Time with threads: ', time_arr[i][1])
 
 if __name__ == '__main__':
-    #main()
-    main_V2()
+    main()
+    #main_V2()

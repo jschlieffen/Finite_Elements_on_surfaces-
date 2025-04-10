@@ -349,7 +349,7 @@ class Surface(Triangulation):
         return np.array([grad_x,grad_y,grad_z])
     
     def normal_vector(self,x,y,z):
-        gradient_p = self.gradient_level_set_fct(x,y,z)
+        #gradient_p = self.gradient_level_set_fct(x,y,z)
         gradient_p = self.compute_grad_at_point(x, y, z)
         return gradient_p/(self.norm(gradient_p))
     
