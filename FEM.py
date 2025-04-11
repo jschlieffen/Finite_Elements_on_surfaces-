@@ -70,22 +70,29 @@ class FEM:
     
     def calc_A(self):
         i = 0
-        for v_id,v in self.surface.vert_dict.items():
-            v_i = v.get_coordinates()
-            j = 0
-            print(i)
-            for w_id,w in self.surface.vert_dict.items():
-                if v_id == w_id or v.check_if_adjacent(w_id):
-                    v_j = w.get_coordinates()
-                    #count = 0
-                    for triangle_index, triangle in self.triangles.items():
-                        if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
-                            if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
-                                #count += 1
-                                #print(count)
-                                self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
-                j += 1
-            i += 1
+        max_vert = self.surface.num_vertices
+        with open('tmp/calc_matrix.txt','w') as file:
+            for v_id,v in self.surface.vert_dict.items():
+                v_i = v.get_coordinates()
+                j = 0
+                print(i)
+                if i % 10 == 0:
+                    file.write(f'matrixcalc: {i}, max = {max_vert - 1} \n')
+                    file.flush()
+                for w_id,w in self.surface.vert_dict.items():
+                    if v_id == w_id or v.check_if_adjacent(w_id):
+                        v_j = w.get_coordinates()
+                        #count = 0
+                        for triangle_index, triangle in self.triangles.items():
+                            if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
+                                if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
+                                    #count += 1
+                                    #print(count)
+                                    self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
+                    j += 1
+                i += 1
+            file.write(f'rhscalc: {i}, max = {max_vert -1} \n')
+            file.flush()
 
     def calculate_matrix_entries(self,i,v_id,v):
         #print('test')
@@ -167,36 +174,21 @@ class FEM:
     # make that each thread is created exaclty once, remove lock if possible and create and give each thread a min. number of matrix rows 
     # maybe I need pathos.multithreading or joblib, when I try to execute the threads
     def calc_A_with_threads(self):
-        #A_w_threads = Array('d', self.n * self.n, lock=True)  # 'd' indicates double (float64), lock=False to avoid synchronization overhead
-        #print(len(self.surface.vert_dict.items()))
-        #print(self.n)
-        #print(len(A_w_threads))
-        #lock = Lock()
         with Manager() as manager:
-            # Use manager to create shared objects
-            #surface_shared = manager.dict(self.surface.vert_dict)  # Share surface's dictionary content
-            #triangles_shared = manager.dict(self.triangles)  # Share triangles dictionary
             A_w_threads = manager.list([0]*(self.n*self.n))
-            #lock = manager.Lock()
-            # Shared data structure for results
             A_w_threads = manager.list(A_w_threads)  
-            print('test')
             chunks = [
                 (i, v_id, v, self.n, A_w_threads) 
                 for i, (v_id, v) in enumerate(self.surface.vert_dict.items())
             ]
-            print('test2')
             with Pool(processes=6) as pool:
                 pool.starmap(self.calculate_matrix_entries_parallel,chunks)
-            
-            #A_w_threads_np = np.frombuffer(A_w_threads.get_obj()).reshape((self.n, self.n))
-            #self.A_w_threads = list(A_w_threads)  # Convert back the manager list to a regular list
             A_w_threads_np = np.array(list(A_w_threads)).reshape((self.n, self.n))
             
             
         self.A_w_threads = A_w_threads_np
         print('calculation succeeded')
-        #print(self.A_w_threads)
+
         
     #edit before FEM
     def f(self, A):
@@ -210,21 +202,28 @@ class FEM:
     #TODO: improve
     def calc_rhs(self):
         i = 0
-        for v_index, v in self.surface.vert_dict.items():
-            res = 0
-            for triangle_index, triangle in self.triangles.items():
-                A, B ,C = triangle.v1,triangle.v2, triangle.v3
-                v_i = v.get_coordinates()
-                res_prev = res
-                sq_det_G = (triangle.det_G)**(1/2)
-                if triangle.chi_v(v_i,A):
-                    res += sq_det_G*(((self.f(A)*triangle.chi_v(v_i,A))/6))
-                elif triangle.chi_v(v_i,B):
-                    res += sq_det_G*((self.f(B)*triangle.chi_v(v_i,B))/6)
-                elif triangle.chi_v(v_i,C):
-                    res += sq_det_G*((self.f(C)*triangle.chi_v(v_i,C))/6) 
-            self.rhs[i] = res
-            i += 1
+        max_vert = self.surface.num_vertices
+        with open('tmp/calc_rhs.txt', 'w') as file:
+            for v_index, v in self.surface.vert_dict.items():
+                if i % 10 == 0:
+                    file.write(f'rhscalc: {i}, max = {max_vert -1} \n')
+                    file.flush()
+                res = 0
+                for triangle_index, triangle in self.triangles.items():
+                    A, B ,C = triangle.v1,triangle.v2, triangle.v3
+                    v_i = v.get_coordinates()
+                    res_prev = res
+                    sq_det_G = (triangle.det_G)**(1/2)
+                    if triangle.chi_v(v_i,A):
+                        res += sq_det_G*(((self.f(A)*triangle.chi_v(v_i,A))/6))
+                    elif triangle.chi_v(v_i,B):
+                        res += sq_det_G*((self.f(B)*triangle.chi_v(v_i,B))/6)
+                    elif triangle.chi_v(v_i,C):
+                        res += sq_det_G*((self.f(C)*triangle.chi_v(v_i,C))/6) 
+                self.rhs[i] = res
+                i += 1
+            file.write(f'rhscalc: {i}, max = {max_vert -1} \n')
+            file.flush()
             
     def solve_sytem(self,A,F):
         return np.linalg.solve(A,F)
@@ -315,8 +314,6 @@ class error_calc:
     
     def refine_of_surface(self, surface, triangles):
         self.surface = surface
-        
-        #print(self.surface.num_vertices)
         self.triangles = triangles
     
 
@@ -326,9 +323,6 @@ class error_calc:
         count = 0
         for triangle_index, triangle in self.triangles.items():
             if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
-                #count += 1
-                #print(count)
-                
                 dS += triangle.area
         return dS
     
@@ -342,7 +336,6 @@ class error_calc:
             dist = np.linalg.norm(u(x_i,y_i,z_i) - u_h[i])
             l2_error += (dist**2)*dS  
             i += 1
-            #test = self.grad_ana_sol(x_i,y_i,z_i )
         return math.sqrt(l2_error)
     
     def grad_ana_sol_proj(self,x,y,z):
@@ -355,12 +348,6 @@ class error_calc:
                 else:
                     P[i][j] = - normal_vector[i]*normal_vector[j]
         grad_ana_sol = np.dot(P,np.array([y,x,0]))
-        #print(normal_vector)
-        #print(P)
-        #print(f'x: {x}, y: {y}, z: {z}')
-        #print(grad_ana_sol)
-        #print('\n')
-        #print(np.dot(grad_ana_sol,normal_vector))
         return grad_ana_sol
     
     def grad_ana_sol(self,x,y,z):
@@ -373,21 +360,12 @@ class error_calc:
             x_v, y_v, z_v = v
             for traingle_id,triangle in self.triangles.items():
                 if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
-                    #if np.array_equal(x, triangle.v1) or  np.array_equal(x, triangle.v2) or  np.array_equal(x, triangle.v3):
-                        #print('')
-                    #print(triangle.Grad_chi_v(v))
-                    #print(u(x_v, y_v, z_v ))
-                        #print(x_v,', ', y_v, ', ', z_v)
                     grad_disc_sol += u(x_v, y_v, z_v )* triangle.Grad_chi_v(v)
-        #print('\n')
-        #print(grad_disc_sol)
-        #print('\n')
         return grad_disc_sol     
     
     
     
     def grad_disc_sol_v2(self,u_h,x_node,x_id):
-        #print('new_it')
         i = 0
         x = x_node.get_coordinates()
         grad_disc_sol = np.zeros(3)
@@ -404,41 +382,9 @@ class error_calc:
                             
                             grad_chi_sum +=triangle.Grad_chi_v(v_i)*triangle.area
                             count += 1
-                            #print('\n')
-                            #print(triangle.Grad_chi_v(v_i))
-                            #print(triangle.area)
-                            #print(triangle.Grad_chi_v(v_i)*triangle.area)
-                            #print('\n')
-
-                            #print(f'count {count} , triangle area: {triangle.area}, triangle meas {triangle_meas}')
-                            #print(f'count {count}, u_h {u_h[i]}, grad chi {triangle.Grad_chi_v(v_i)}, grad_chi_sum {grad_chi_sum}, u(x) {u_x}')
-                #print('look')
-                #print(grad_chi_sum)
-                #print(triangle_meas)
-                #print(u_h[i])
-                #print(v_i)
                 grad_chi_sum /= triangle_meas
-                #print(grad_chi_sum)
-                #print('\n')
                 grad_disc_sol += u_h[i]*grad_chi_sum
-                #if x_id == v_id:
-                    #print(triangle_meas)
-                #print(u_h[i])
-                #print(v_i)
-                #print(grad_chi_sum)
-                #print(u_h[i]*grad_chi_sum)
-               # print('\n')
-                   
             i += 1
-            
-        #j = 0
-        #for v_id,v in self.surface.vert_dict.items():
-            #if v.check_if_adjacent(w_id):
-        #print(x)     
-        x_i, y_i, z_i = x
-        #grad_disc_sol = grad_chi_sum
-        #print(grad_disc_sol)
-        #print(i)
         return grad_disc_sol
     
     #TODO: check if calculation is correct
@@ -455,13 +401,7 @@ class error_calc:
                 delta_y = (z2 - z3)/(2*area)
                 delta_z = (x2 - x3)/(2*area)
                 grad_disc_sol += u_h[i]*np.array([delta_x,delta_y,delta_z])
-                #print(type(grad_chi_sum))
-                #print(grad_chi_sum.ndim)
                 i+=1
-        #grad_disc_sol = grad_chi_sum
-        #print(u_h)
-        #print(x)
-        #print(grad_disc_sol)
         return grad_disc_sol
         
     def project_grad2surf(self,grad_disc_sol,grad_ana_sol,x,y,z):
@@ -481,35 +421,21 @@ class error_calc:
     def h1_error(self,u_h,l2_error):
         h1_semi_error = 0
         i = 0
-        #grad_disc_sol = self.grad_disc_sol(u)
         for v_id, v in self.surface.vert_dict.items():
             v_i = v.get_coordinates()
             dS = self.calc_dS(v_i)
             x_i,y_i,z_i = v_i
             dist = np.linalg.norm(self.grad_ana_sol_proj(x_i,y_i,z_i) - self.grad_disc_sol_v2(u_h,v,v_id))
-            #dist = np.linalg.norm(self.grad_ana_sol(x_i,y_i,z_i))
-            #grad_ana_sol = self.grad_ana_sol(x_i,y_i,z_i)
-            #grad_disc_sol = self.grad_disc_sol_v3(u_h, v_i)
-            #grad_proj = self.project_grad2surf(grad_disc_sol, grad_ana_sol, x_i,y_i,z_i)
-            #dist = np.linalg.norm(grad_proj)
             h1_semi_error += (dist**2)*dS  
-            #print(h1_semi_error)
-            #print(dS)
-            #print(h1_semi_error)
-            #print(self.grad_disc_sol_v2(u_h,v,v_id)
-            #print('\n')
             i += 1
-            
-            #test = self.grad_ana_sol(x_i,y_i,z_i )
         h1_semi_error = math.sqrt(h1_semi_error)
-        #return math.sqrt(l2_error)
-        #print(h1_semi_error)
-        #h1_error = math.sqrt((l2_error)**2 + (h1_semi_error)**2)
         return h1_semi_error
         
     def calc_OOC(self,error_prev,error_now,diam_prev,diam_now):
-        #return (math.log2(error_now/error_prev))/(math.log2(diam_now/diam_prev))
         return (math.log2(error_prev/error_now))/(math.log2(diam_prev/diam_now))
+    
+    
+    
 # =============================================================================
 # Function to execute the main functions of the file and print it.
 # Used for debugging purposes.
@@ -520,7 +446,7 @@ def main():
     print('first refinement')
     FEM_cls.only_surface_refinement()
     print('second refinement')
-    #FEM_cls.only_surface_refinement()
+    FEM_cls.only_surface_refinement()
     print('third refinement')
     #FEM_cls.only_surface_refinement()
     print('fourth refinement')
