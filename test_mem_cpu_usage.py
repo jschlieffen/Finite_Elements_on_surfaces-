@@ -26,16 +26,21 @@ def get_process_usage(pid):
         print(f"Process with PID {pid} does not exist.")
         return None, None
 
-def find_python_process():
-    # List all processes and find the Python process by its name (if you know it)
-    for proc in psutil.process_iter(attrs=['pid', 'name']):
-        if 'python' in proc.info['name'].lower():  # You can filter based on a different criterion if necessary
-            print(f"Found Python process: {proc.info}")
-            return proc.info['pid']
+def find_python_process(keyword):
+    for proc in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
+        try:
+            if 'python' in proc.info['name'].lower():
+                cmdline = ' '.join(proc.info['cmdline']) if proc.info['cmdline'] else ''
+                if keyword in cmdline:
+                    print(f"Found Python process: {proc.info}")
+                    return proc.info['pid']
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
     return None
 
 # Example usage:
-pid = find_python_process()  # You can directly set the PID if you know it
+pid = find_python_process('exec.py')  # You can directly set the PID if you know it
+print('test')
 if pid:
     memory, cpu = get_process_usage(pid)
     if memory is not None and cpu is not None:

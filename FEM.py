@@ -71,29 +71,33 @@ class FEM:
     def calc_A(self):
         i = 0
         max_vert = self.surface.num_vertices
-        with open('tmp/calc_matrix.txt','w') as file:
-            for v_id,v in self.surface.vert_dict.items():
-                v_i = v.get_coordinates()
-                j = 0
-                print(i)
-                if i % 10 == 0:
+
+        for v_id,v in self.surface.vert_dict.items():
+            v_i = v.get_coordinates()
+            j = 0
+            #print(i)
+            if i % 10 == 0 and max_vert > 100:
+                with open('tmp/calc_matrix.txt','a') as file:
                     file.write(f'matrixcalc: {i}, max = {max_vert - 1} \n')
                     file.flush()
-                for w_id,w in self.surface.vert_dict.items():
-                    if v_id == w_id or v.check_if_adjacent(w_id):
-                        v_j = w.get_coordinates()
-                        #count = 0
-                        for triangle_index, triangle in self.triangles.items():
-                            if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
-                                if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
-                                    #count += 1
-                                    #print(count)
-                                    self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
-                    j += 1
-                i += 1
-            file.write(f'rhscalc: {i}, max = {max_vert -1} \n')
-            file.flush()
+            for w_id,w in self.surface.vert_dict.items():
+                if v_id == w_id or v.check_if_adjacent(w_id):
+                    v_j = w.get_coordinates()
+                    #count = 0
+                    for triangle_index, triangle in self.triangles.items():
+                        if triangle.chi_v(v_i,triangle.v1) or triangle.chi_v(v_i,triangle.v2) or triangle.chi_v(v_i,triangle.v3):
+                            if triangle.chi_v(v_j,triangle.v1) or triangle.chi_v(v_j,triangle.v2) or triangle.chi_v(v_j,triangle.v3):
+                                #count += 1
+                                #print(count)
+                                self.A[i][j] += (np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area)
+                j += 1
+            i += 1
 
+        with open('tmp/calc_matrix.txt','w') as file:
+            file.write(f'matrixcalc: 1, max = 1 \n')
+            file.flush()
+            
+            
     def calculate_matrix_entries(self,i,v_id,v):
         #print('test')
         try:
@@ -203,26 +207,28 @@ class FEM:
     def calc_rhs(self):
         i = 0
         max_vert = self.surface.num_vertices
-        with open('tmp/calc_rhs.txt', 'w') as file:
-            for v_index, v in self.surface.vert_dict.items():
-                if i % 10 == 0:
+        for v_index, v in self.surface.vert_dict.items():
+            if i % 10 == 0 and max_vert > 100:
+                with open('tmp/calc_rhs.txt', 'a') as file:
                     file.write(f'rhscalc: {i}, max = {max_vert -1} \n')
                     file.flush()
-                res = 0
-                for triangle_index, triangle in self.triangles.items():
-                    A, B ,C = triangle.v1,triangle.v2, triangle.v3
-                    v_i = v.get_coordinates()
-                    res_prev = res
-                    sq_det_G = (triangle.det_G)**(1/2)
-                    if triangle.chi_v(v_i,A):
-                        res += sq_det_G*(((self.f(A)*triangle.chi_v(v_i,A))/6))
-                    elif triangle.chi_v(v_i,B):
-                        res += sq_det_G*((self.f(B)*triangle.chi_v(v_i,B))/6)
-                    elif triangle.chi_v(v_i,C):
-                        res += sq_det_G*((self.f(C)*triangle.chi_v(v_i,C))/6) 
-                self.rhs[i] = res
-                i += 1
-            file.write(f'rhscalc: {i}, max = {max_vert -1} \n')
+            res = 0
+            #print('rhs', i)
+            for triangle_index, triangle in self.triangles.items():
+                A, B ,C = triangle.v1,triangle.v2, triangle.v3
+                v_i = v.get_coordinates()
+                res_prev = res
+                sq_det_G = (triangle.det_G)**(1/2)
+                if triangle.chi_v(v_i,A):
+                    res += sq_det_G*(((self.f(A)*triangle.chi_v(v_i,A))/6))
+                elif triangle.chi_v(v_i,B):
+                    res += sq_det_G*((self.f(B)*triangle.chi_v(v_i,B))/6)
+                elif triangle.chi_v(v_i,C):
+                    res += sq_det_G*((self.f(C)*triangle.chi_v(v_i,C))/6) 
+            self.rhs[i] = res
+            i += 1
+        with open('tmp/calc_rhs.txt', 'w') as file:
+            file.write(f'rhscalc: 1, max = 1 \n')
             file.flush()
             
     def solve_sytem(self,A,F):
