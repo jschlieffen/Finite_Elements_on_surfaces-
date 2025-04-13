@@ -10,6 +10,8 @@ To run the Program one needs to execute the Program `exec.py`. The following lib
 * numpy
 * sympy
 * plotly
+* plotext
+* curses
 * (eventually pandas)
 
 The program generates plots, which are saved in the "plots" folder. Currently, there are several plots from our initial test runs.
