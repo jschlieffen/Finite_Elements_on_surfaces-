@@ -386,6 +386,7 @@ class Surface(Triangulation):
         sevent_sum = ((der_z*der_x)/(normed_gradient_p**2))*der_z_x
         nineth_sum = (1 - (der_z**2)/(normed_gradient_p**2))*der_z_z
         res = (1/normed_gradient_p)*(first_sum - third_sum + fifth_sum - sevent_sum + nineth_sum)
+        #print(f'x: {x}, y:{y}, z:{z}, mean curvature: {res}')
         return res
         
     def compute_sec_derv(self,x,y,z):

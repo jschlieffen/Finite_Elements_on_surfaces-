@@ -106,6 +106,8 @@ def step_FEM_algorithm(prev_h,prev_l2_error,prev_h1_error, is_first=False):
         print(f'Errors calculated for mesh size: ', h)
     start_plots_discrete_surface()
     return h,l2_error, h1_error
+
+
 #TODO: check for the implementation of Windows/Apple
 def start_monotoring():
     system = pt.system()

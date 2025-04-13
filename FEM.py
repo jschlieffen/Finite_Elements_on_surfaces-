@@ -40,7 +40,7 @@ class FEM:
         self.calc_A()
         self.A_w_threads = np.zeros((self.n, self.n))
         #self.locks = np.array([threading.Lock() for _ in range(self.n)])
-        self.calc_A_with_threads()
+        #self.calc_A_with_threads()
         self.test_time_wo_threads = 0
         self.test_time_w_threads = 0
 
