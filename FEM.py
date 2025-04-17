@@ -323,25 +323,35 @@ class error_calc:
         self.triangles = triangles
     
 
-    #TODO: debug
+    #TODO: test how the error behaves now.
     def calc_dS(self, v):
         dS = 0
         count = 0
+        total_surface_area = 0
         for triangle_index, triangle in self.triangles.items():
+            total_surface_area += triangle.area
             if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
                 dS += triangle.area
-        return dS
+        return dS/total_surface_area
     
     def l2_error(self,u,u_h):
         l2_error = 0
         i = 0
+        max_vert = self.surface.num_vertices
         for v_id, v in self.surface.vert_dict.items():
+            if i % 10 == 0 and max_vert > 100:
+                with open('tmp/calc_l2.txt', 'a') as file:
+                    file.write(f'l2calc: {i}, max = {max_vert -1} \n')
+                    file.flush()
             v_i = v.get_coordinates()
             dS = self.calc_dS(v_i)
             x_i,y_i,z_i = v_i
             dist = np.linalg.norm(u(x_i,y_i,z_i) - u_h[i])
             l2_error += (dist**2)*dS  
             i += 1
+        with open('tmp/calc_l2.txt', 'w') as file:
+            file.write(f'l2calc: 1, max = 1 \n')
+            file.flush()
         return math.sqrt(l2_error)
     
     def grad_ana_sol_proj(self,x,y,z):
@@ -427,7 +437,12 @@ class error_calc:
     def h1_error(self,u_h,l2_error):
         h1_semi_error = 0
         i = 0
+        max_vert = self.surface.num_vertices
         for v_id, v in self.surface.vert_dict.items():
+            if i % 10 == 0 and max_vert > 100:
+                with open('tmp/calc_h1.txt', 'a') as file:
+                    file.write(f'h1calc: {i}, max = {max_vert -1} \n')
+                    file.flush()
             v_i = v.get_coordinates()
             dS = self.calc_dS(v_i)
             x_i,y_i,z_i = v_i
@@ -435,6 +450,9 @@ class error_calc:
             h1_semi_error += (dist**2)*dS  
             i += 1
         h1_semi_error = math.sqrt(h1_semi_error)
+        with open('tmp/calc_h1.txt', 'w') as file:
+            file.write(f'h1calc: 1, max = 1 \n')
+            file.flush()
         return h1_semi_error
         
     def calc_OOC(self,error_prev,error_now,diam_prev,diam_now):

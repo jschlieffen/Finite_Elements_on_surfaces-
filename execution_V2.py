@@ -18,6 +18,7 @@ import signal
 sys.path.append(os.path.abspath('logscripts/'))
 sys.path.append(os.path.abspath('Params/'))
 from log_msg import *
+import logfile_gen 
 import params as par
 
 
@@ -30,24 +31,36 @@ class exec_:
         self.FEM_cls = None
         self.start_time = time.time()
         self.running = True
+        self.logfile = logfile_gen.Logfile()
         
     
     def start_algo(self):
         #signal.signal(signal.SIGINT, self.signal_handler)
         
         #signal.signal(signal.SIGTERM, self.signal_handler)
+        
         if self.Par_.show_progress_bar:
             self.start_monotoring()
         if self.Par_.show_ressource_usage:
             self.start_monotoring_graphs()
+        
         self.FEM_cls = FEM.FEM()
         self.start_plots_surface()
         self.start_FEM_algorithm()
+        self.logfile.write()
         self.cleanup()
     
     #TODO: check for the implementation of Windows/Apple
     def start_monotoring(self):
         system = pt.system()
+        with open('tmp/general.txt','w') as file:
+            #print('test')
+            if self.Par_.calculation_of_error_estimates:
+                file.write(f'set_error_calc=True \n')
+            else:
+                file.write(f'set_error_calc=False \n')
+            file.flush()
+        time.sleep(0.01)
         #print(system)
         if system == 'Windows':
             subprocess.Popen(["start", "cmd", "\k", "python monotoring/monotoring_launcher.py"], shell=True)
@@ -62,8 +75,30 @@ class exec_:
             #self.cleanup()
             sys.exit(1)
             
+    def reset_monotoring(self, refinement_number = 0):
+        time.sleep(5)
+        with open('tmp/general.txt','a') as file:
+            file.write(f'refinement_number={refinement_number} \n')
+            file.flush()
+            
+        with open('tmp/calc_rhs.txt', 'w') as file:
+            file.write(f'h1calc: 0 max = 1 \n')
+            file.flush()
+        with open('tmp/calc_matrix.txt', 'w') as file:
+            file.write(f'h1calc: 0 max = 1 \n')
+            file.flush()
+        
+        with open('tmp/calc_l2.txt', 'w') as file:
+            file.write(f'l2calc: 0 max = 1 \n')
+            file.flush()
+            
+        with open('tmp/calc_h1.txt', 'w') as file:
+            file.write(f'h1calc: 0 max = 1 \n')
+            file.flush()
+        
     def start_monotoring_graphs(self):
         system = pt.system()
+
         #print(system)
         if system == 'Windows':
             subprocess.Popen(["start", "cmd", "\k", "python monotoring/monotoring_graphs_launcher.py"], shell=True)
@@ -130,19 +165,36 @@ class exec_:
         
     def start_FEM_algorithm(self):
 
-        for i in range(1,5):
+        for i in range(1,self.Par_.refinement_numbers+1):
+            self.reset_monotoring(i)
             logger.info('refinement Number: ' + str(i))
+            start_time = time.time()
             self.FEM_cls.surface_refinement()
             if self.Par_.calculation_of_error_estimates:
                 logger.success('Refinement process finsished. Start with Calculation of the error and the order of convergence')
                 if i == 1:
-                    h,l2_error, h1_error = self.calculation_error_estimates(0,0,0,True)
+                    h,l2_error, h1_error,OOC_l2, OOC_h1 = self.calculation_error_estimates(0,0,0,True)
                 else:
-                    h,l2_error, h1_error = self.calculation_error_estimates(h, l2_error, h1_error)
+                    h,l2_error, h1_error,OOC_l2, OOC_h1  = self.calculation_error_estimates(h, l2_error, h1_error)
                 logger.success('Calculation of error estimates finsished start with plots')
             else:
                 logger.success('Refinement process finsished. Start Plots')
             self.start_plots_discrete_surface()
+            exec_time_ref = time.time() - start_time
+            if self.Par_.calculation_of_error_estimates:
+                ana_sol = np.zeros((self.FEM_cls.n,1))
+                i = 0
+                for v_id,v in self.FEM_cls.surface.vert_dict.items():
+                    x,y,z = v.get_coordinates()
+                    ana_sol[i] = self.FEM_cls.ana_sol(x, y, z)
+                    i += 1
+                #print(self.FEM_cls.A)
+                self.logfile.append_refinement(
+                    self.FEM_cls.A, self.FEM_cls.rhs, 
+                    self.FEM_cls.solve_sytem(self.FEM_cls.A, self.FEM_cls.rhs),
+                    ana_sol, self.FEM_cls.surface.vert_dict, exec_time_ref,
+                    [l2_error,OOC_l2, h1_error, OOC_h1]
+                    )
                 
     
     def calculation_error_estimates(self,prev_h,prev_l2_error,prev_h1_error, is_first=False):
@@ -161,7 +213,10 @@ class exec_:
             OOC_h1 = Error_estimates.calc_OOC(h1_error, prev_h1_error, h, prev_h)
             logger.info(f'Order of convergence for the h1 error: {OOC_h1}')
             logger.info(f'Errors calculated for mesh size: {h}')
-        return h,l2_error, h1_error
+        else:
+            OOC_l2 = 0
+            OOC_h1 = 0
+        return h,l2_error, h1_error, OOC_l2, OOC_h1
     
     #Currently not used. If the source code is frocefully terminated. One has to clean up the source code manually
     def signal_handler(self,signum, frame):

@@ -94,7 +94,6 @@ class Plot_surface:
         y_surface = Y[points]
         z_surface = Z[points]
         points_func = self.func(x_surface,y_surface,z_surface)
-        print(points_func)
         fig = go.Figure(data=[go.Scatter3d(
             x=x_surface, 
             y=y_surface, 

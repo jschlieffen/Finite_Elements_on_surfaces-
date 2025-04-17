@@ -165,7 +165,7 @@ def init_color_pairs_v2():
 def main(stdscr):
     stdscr.clear()
     init_color_pairs_v2()
-    pid = Reu.find_python_process('exec.py')
+    pid = Reu.find_python_process('execution_V2.py')
     mem_usage, cpu_usage, tmpstmp = [],[],[]
     start_time = time.time()
     cpu_count = Reu.get_cpu_num()

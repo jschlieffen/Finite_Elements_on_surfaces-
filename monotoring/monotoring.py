@@ -24,7 +24,7 @@ def process_line(line):
         return 0
 
 
-def tail_file(file_path):
+def tail_file(file_path,interval):
     proc = subprocess.Popen(
         ['tail', '-n', '0', '-F', file_path],
         stdout=subprocess.PIPE,
@@ -33,7 +33,7 @@ def tail_file(file_path):
         bufsize=0
     )
     while True:
-        rlist, _, _ = select.select([proc.stdout], [], [],0.01)
+        rlist, _, _ = select.select([proc.stdout], [], [],interval)
         if rlist:
             line = proc.stdout.readline()
             if not line:
@@ -81,14 +81,19 @@ def main(stdscr,file_names):
     for file_name in file_names:
         data_dict[file_name[0]] = {
             'typ' : file_name[1],
-            'tail' : tail_file(file_name[0]),
+            'tail' : tail_file(file_name[0],0.01),
             #'tail' : file_follower(file_name[0]),
             'last_line' : '', 
-            #'current_calc' : False
+            'current_calc' : False
         }
     other_calc = False
+    ref_num_tail = tail_file('../tmp/general.txt',1)
+    refinement_number = 0
     while True:
-        stdscr.addstr(0,0,'Monotoring of the current progress',curses.color_pair(6))
+        #line_ref_num = next(ref_num_tail)
+        #if line_ref_num:
+            #refinement_number = int(line_ref_num.split('=')[1])
+        stdscr.addstr(0,0,f'Monotoring of the current progress, Refinement',curses.color_pair(6))
 
         for key,val in data_dict.items():
             #try:
@@ -96,16 +101,20 @@ def main(stdscr,file_names):
                 if line is not None:
                     data_dict[key]['last_line'] = line
                     other_calc = True
+                '''
                 elif line is None:
                     if other_calc:
                         #TODO: Find better sol. to that.
                         if 'rhs' in val['typ']:
                             data_dict[key]['last_line'] = '1, max = 1'
                         elif 'matrix' in val['typ']:
+                            data_dict[key]['last_line'] = '1, max = 1'
+                        elif 'l2' in val['typ']:
+                            data_dict[key]['last_line'] = '1, max = 1'
+                        elif 'h1' in val['typ']:
                             data_dict[key]['last_line'] = '0, max = 1'
                         other_calc = False
-                
-    
+                '''
                 #else:
                     #data_dict[key]['last_line'] = '1, max = 1'
                 #gen_list += [tail_file(file_name)]

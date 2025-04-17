@@ -68,7 +68,7 @@ def setup_logger():
     run_id = config.getint('general', 'run_id')
     config['general']['run_id'] = str(run_id+1)
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    file_handler = logging.FileHandler(f'logs/Run_{str(run_id+1)}_{timestamp}.log')
+    file_handler = logging.FileHandler(f'logs/Run_{str(run_id+1)}_{timestamp}_cmd_msg.log')
     file_handler.setFormatter(BoostLogFormatter())
     logger.addHandler(file_handler)
     return logger

@@ -43,6 +43,7 @@ class Params:
         self.show_progress_bar = self.get_value('monotoring', 'show_progress_bar', 'bool', required=True)
         self.show_ressource_usage = self.get_value('monotoring', 'show_ressource_usage', 'bool', required=True)
         self.calculation_of_error_estimates = self.get_value('error_estimates', 'calculation_of_error_estimates', 'bool',required=True)
+        self.refinement_numbers = self.get_value('Triangulation', 'refinement_number', 'int', required=True)
         
     
     def get_value(self, section, param, par_type, var=None, required=False):
