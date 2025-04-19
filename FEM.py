@@ -310,7 +310,8 @@ class Triangle:
     
 
 # =============================================================================
-# TODO
+# TODO: runtime optimization.
+#       clean up the source code
 # =============================================================================
 class error_calc:
     
@@ -334,7 +335,7 @@ class error_calc:
                 dS += triangle.area
         return dS/total_surface_area
     
-    def l2_error(self,u,u_h):
+    def l2_error_v2(self,u,u_h):
         l2_error = 0
         i = 0
         max_vert = self.surface.num_vertices
@@ -353,6 +354,73 @@ class error_calc:
             file.write(f'l2calc: 1, max = 1 \n')
             file.flush()
         return math.sqrt(l2_error)
+    
+    def l2_error(self,u,u_h):
+        l2_error = 0
+        max_it = len(self.triangles)
+        j = 0
+        for triangle_index, triangle in self.triangles.items():
+            i = 0
+            triangle_int = 0
+            if j % 10 == 0 and max_it > 200:
+                with open('tmp/calc_l2.txt', 'a') as file:
+                    file.write(f'l2calc: {j}, max = {max_it -1} \n')
+                    file.flush()
+            count = 0
+            j += 1
+            for v_id,v_i in self.surface.vert_dict.items():
+                v = v_i.get_coordinates()
+                x_i,y_i,z_i = v
+                if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
+                    triangle_int += np.linalg.norm((u(x_i,y_i,z_i) - u_h[i])/6)**2
+                    count += 1
+                    #print(count)
+                i += 1
+            sq_det_G = (triangle.det_G)**(1/2)
+            l2_error += sq_det_G*triangle_int
+        
+        with open('tmp/calc_l2.txt', 'w') as file:
+            file.write(f'l2calc: 1, max = 1 \n')
+            file.flush()
+        return math.sqrt(l2_error)
+    
+    def h1_error(self,u_h,l2_error):
+        h1_semi_error = 0 
+        max_it = len(self.triangles)
+        j = 0
+        for traingle_id, triangle in self.triangles.items():
+            i = 0
+            triangle_int = 0
+            if j % 10 == 0 and max_it > 200:
+                with open('tmp/calc_h1.txt', 'a') as file:
+                    file.write(f'h1calc: {j}, max = {max_it -1} \n')
+                    file.flush()
+            count = 0
+            j += 1
+            for v_id,v_i in self.surface.vert_dict.items():
+                v = v_i.get_coordinates()
+                #v = v_i.get_coordinates()
+                x_i,y_i,z_i = v
+                if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
+                    grad_u = self.grad_ana_sol_proj(x_i, y_i, z_i)
+                    grad_disc_u = self.grad_disc_sol_v2(u_h, v_i, v_id)
+                    #triangle_int += (grad_u - grad_disc_u)/6
+                    triangle_int += np.linalg.norm((grad_u - grad_disc_u)/6)**2
+                    count += 1
+                i += 1
+            #triangle_int = np.linalg.norm(triangle_int)**2
+            #print(count)
+            #print(i)
+            sq_det_G = (triangle.det_G)**(1/2)
+            #print(sq_det_G)
+            #print(triangle)
+            h1_semi_error += sq_det_G*triangle_int
+            
+            
+        with open('tmp/calc_h1.txt', 'w') as file:
+            file.write(f'h1calc: 1, max = 1 \n')
+            file.flush()
+        return math.sqrt(h1_semi_error)
     
     def grad_ana_sol_proj(self,x,y,z):
         P = np.zeros((3,3))
@@ -434,7 +502,7 @@ class error_calc:
         return grad_proj
         
     #TODO: check calculation of dS, it is zero at some points, what should not be the case
-    def h1_error(self,u_h,l2_error):
+    def h1_error_v2(self,u_h,l2_error):
         h1_semi_error = 0
         i = 0
         max_vert = self.surface.num_vertices

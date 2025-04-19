@@ -43,7 +43,7 @@ class exec_:
             self.start_monotoring()
         if self.Par_.show_ressource_usage:
             self.start_monotoring_graphs()
-        
+        logger.info(f"Number of total refinements: {self.Par_.refinement_numbers}")
         self.FEM_cls = FEM.FEM()
         self.start_plots_surface()
         self.start_FEM_algorithm()
