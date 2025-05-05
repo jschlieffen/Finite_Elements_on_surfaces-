@@ -201,9 +201,14 @@ class exec_:
         Error_estimates = FEM.error_calc(self.FEM_cls.surface, self.FEM_cls.triangles)
         l2_error = Error_estimates.l2_error(self.FEM_cls.ana_sol,
                                             self.FEM_cls.solve_sytem(self.FEM_cls.A, self.FEM_cls.rhs))
+        
+        abs_error = Error_estimates.absolute_error(self.FEM_cls.ana_sol,
+                                                   self.FEM_cls.solve_sytem(self.FEM_cls.A, self.FEM_cls.rhs))
+        logger.info(f'absolute error: {abs_error}')
         logger.info(f'l2 error: {l2_error}')
         h1_error= Error_estimates.h1_error(self.FEM_cls.solve_sytem(self.FEM_cls.A, self.FEM_cls.rhs), l2_error)
-        
+        #h1_error = 0
+        #OOC_h1 = 0
         logger.info(f'h1 error: {h1_error}')
         h = self.FEM_cls.h
 
@@ -213,6 +218,10 @@ class exec_:
             OOC_h1 = Error_estimates.calc_OOC(h1_error, prev_h1_error, h, prev_h)
             logger.info(f'Order of convergence for the h1 error: {OOC_h1}')
             logger.info(f'Errors calculated for mesh size: {h}')
+            if OOC_l2 < 0:
+                logger.warning(f'Order of convergence of the l2 error is negative. Should not be the case')
+            if OOC_h1 < 0:
+                logger.warning(f'Order of convergence of the h1 error is negative. Should not be the case')
         else:
             OOC_l2 = 0
             OOC_h1 = 0

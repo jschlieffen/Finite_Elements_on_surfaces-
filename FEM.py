@@ -14,6 +14,10 @@ import concurrent.futures
 import threading
 import time
 from multiprocessing import Pool, Manager, Array, Lock
+import sys
+import os
+sys.path.append(os.path.abspath('logscripts/'))
+from log_msg import *
 
 # =============================================================================
 # This class computes the FEM method on surfaces. It will use the triangulation
@@ -241,15 +245,18 @@ class FEM:
         self.surface.refine()
         self.triangles = {}
         self.get_triangles()
+        logger.info('Surface Refinement completed. Start calculation of the right hand side')
         self.h = -1
         self.calc_h()
         self.n = 0 
         self.calc_n()
         self.rhs = np.zeros((self.n,1))
         self.calc_rhs()
+        logger.info('right hand side calculation completed. Start calculation of the matrix')
         self.A = np.zeros((self.n, self.n))
         start_time_wo_threads = time.time()
         self.calc_A()
+        logger.info('matrix calculation completed')
         end_time_wo_threads = time.time()
         self.A_w_threads = np.zeros((self.n, self.n))
         #self.locks = np.array([threading.Lock() for _ in range(self.n)])
@@ -335,6 +342,18 @@ class error_calc:
                 dS += triangle.area
         return dS/total_surface_area
     
+    def absolute_error(self,u,u_h):
+        abs_error = 0
+        i = 0
+        for v_id, v in self.surface.vert_dict.items():
+            v_i = v.get_coordinates()
+            x_i,y_i,z_i = v_i
+            dist = np.linalg.norm(u(x_i,y_i,z_i) - u_h[i])
+            abs_error += dist
+            i += 1
+        #print(self.surface.num_vertices)
+        return abs_error/self.surface.num_vertices
+    
     def l2_error_v2(self,u,u_h):
         l2_error = 0
         i = 0
@@ -372,7 +391,7 @@ class error_calc:
                 v = v_i.get_coordinates()
                 x_i,y_i,z_i = v
                 if np.array_equal(v, triangle.v1) or  np.array_equal(v, triangle.v2) or  np.array_equal(v, triangle.v3):
-                    triangle_int += np.linalg.norm((u(x_i,y_i,z_i) - u_h[i])/6)**2
+                    triangle_int += (np.linalg.norm((u(x_i,y_i,z_i) - u_h[i]))**2)/6
                     count += 1
                     #print(count)
                 i += 1
@@ -405,7 +424,7 @@ class error_calc:
                     grad_u = self.grad_ana_sol_proj(x_i, y_i, z_i)
                     grad_disc_u = self.grad_disc_sol_v2(u_h, v_i, v_id)
                     #triangle_int += (grad_u - grad_disc_u)/6
-                    triangle_int += np.linalg.norm((grad_u - grad_disc_u)/6)**2
+                    triangle_int += (np.linalg.norm((grad_u - grad_disc_u))**2)/6
                     count += 1
                 i += 1
             #triangle_int = np.linalg.norm(triangle_int)**2
