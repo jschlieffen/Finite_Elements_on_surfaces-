@@ -85,7 +85,7 @@ def draw_Graph_mem_usage(stdscr, mem_usage):
     plt.plot(mem_usage)   
     plt.theme("dark")
     plt.title("Memory usage in MB")
-    plt.plot_size(40,15)
+    plt.plot_size(20,15)
     buf = io.StringIO()
     with redirect_stdout(buf):
         plt.show()
@@ -128,7 +128,7 @@ def draw_Graph_cpu_usage(stdscr, cpu_usage):
     plt.plot(cpu_usage)   
     plt.theme("dark")
     plt.title("CPU usage in %")
-    plt.plot_size(40,15)
+    plt.plot_size(20,15)
     buf = io.StringIO()
     with redirect_stdout(buf):
         plt.show()

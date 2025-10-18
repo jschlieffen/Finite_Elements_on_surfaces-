@@ -176,6 +176,7 @@ class exec_:
                     h,l2_error, h1_error,OOC_l2, OOC_h1 = self.calculation_error_estimates(0,0,0,True)
                 else:
                     h,l2_error, h1_error,OOC_l2, OOC_h1  = self.calculation_error_estimates(h, l2_error, h1_error)
+                logger.info(f'Errors calculated for mesh size: {h}')
                 logger.success('Calculation of error estimates finsished start with plots')
             else:
                 logger.success('Refinement process finsished. Start Plots')
@@ -217,7 +218,7 @@ class exec_:
             logger.info(f'Order of convergence for the l2 error: {OOC_l2}')
             OOC_h1 = Error_estimates.calc_OOC(h1_error, prev_h1_error, h, prev_h)
             logger.info(f'Order of convergence for the h1 error: {OOC_h1}')
-            logger.info(f'Errors calculated for mesh size: {h}')
+            
             if OOC_l2 < 0:
                 logger.warning(f'Order of convergence of the l2 error is negative. Should not be the case')
             if OOC_h1 < 0:

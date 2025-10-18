@@ -18,6 +18,8 @@ import sys
 import os
 sys.path.append(os.path.abspath('logscripts/'))
 from log_msg import *
+from itertools import islice
+
 
 # =============================================================================
 # This class computes the FEM method on surfaces. It will use the triangulation
@@ -139,7 +141,7 @@ class FEM:
         print('calculation succeeded')
         
     
-    def calculate_matrix_entries_parallel(self,i, v_id, v,n , A_w_threads):
+    def calculate_matrix_entries_parallel_old(self,i, v_id, v,n , A_w_threads):
         
         #i, v_id, v, n, triangles, surface_vertices, A_w_threads, lock = args
         print(i)
@@ -181,7 +183,7 @@ class FEM:
     #TODO:optimize source code, such that this will be faster than the sequentiell implementation
     # make that each thread is created exaclty once, remove lock if possible and create and give each thread a min. number of matrix rows 
     # maybe I need pathos.multithreading or joblib, when I try to execute the threads
-    def calc_A_with_threads(self):
+    def calc_A_with_threads_old(self):
         with Manager() as manager:
             A_w_threads = manager.list([0]*(self.n*self.n))
             A_w_threads = manager.list(A_w_threads)  
@@ -196,6 +198,91 @@ class FEM:
             
         self.A_w_threads = A_w_threads_np
         print('calculation succeeded')
+        
+    def calculate_matrix_entries_parallel(self, start_row, end_row, n, A_w_threads):
+        vert_items_iter = islice(self.surface.vert_dict.items(), start_row, end_row)
+        vert_dict = self.surface.vert_dict
+    
+        for i_offset, (v_id, v) in enumerate(vert_items_iter):
+            i = start_row + i_offset
+            v_i = v.get_coordinates()
+    
+            for j, (w_id, w) in enumerate(vert_dict.items()):
+                if v_id == w_id or v.check_if_adjacent(w_id):
+                    v_j = w.get_coordinates()
+    
+                    for triangle in self.triangles.values():
+                        if triangle.chi_v(v_i, triangle.v1) or triangle.chi_v(v_i, triangle.v2) or triangle.chi_v(v_i, triangle.v3):
+                            if triangle.chi_v(v_j, triangle.v1) or triangle.chi_v(v_j, triangle.v2) or triangle.chi_v(v_j, triangle.v3):
+                                val = np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area
+                                index = i * n + j
+                                A_w_threads[index] += val
+
+    def calc_A_with_threads(self, num_processes=6):
+        from multiprocessing import Pool, Manager
+    
+        with Manager() as manager:
+            n = self.n
+            A_w_threads = manager.list([0] * (n * n))
+    
+            rows_per_proc = n // num_processes
+            chunks = []
+    
+            for p in range(num_processes):
+                start_row = p * rows_per_proc
+                end_row = (p + 1) * rows_per_proc if p < num_processes - 1 else n
+                chunks.append((start_row, end_row, n, A_w_threads))
+    
+            with Pool(processes=num_processes) as pool:
+                func = self.calculate_matrix_entries_parallel
+                pool.starmap(func, chunks)
+
+            A_w_threads_np = np.array(list(A_w_threads)).reshape((n, n))
+        self.A_w_threads = A_w_threads_np
+        logger.info("calculation threads succeeded")
+
+    def calculate_matrix_rows(self, start_row, end_row, A_w_threads):
+        n = self.n
+        vert_items = list(self.surface.vert_dict.items())
+        
+        for i in range(start_row, end_row):
+            v_id, v = vert_items[i]
+            v_i = v.get_coordinates()
+    
+            for j, (w_id, w) in enumerate(vert_items):
+                if v_id == w_id or v.check_if_adjacent(w_id):
+                    v_j = w.get_coordinates()
+    
+                    for triangle in self.triangles.values():
+                        if triangle.chi_v(v_i, triangle.v1) or triangle.chi_v(v_i, triangle.v2) or triangle.chi_v(v_i, triangle.v3):
+                            if triangle.chi_v(v_j, triangle.v1) or triangle.chi_v(v_j, triangle.v2) or triangle.chi_v(v_j, triangle.v3):
+                                val = np.dot(triangle.Grad_chi_v(v_i), triangle.Grad_chi_v(v_j)) * triangle.area
+                                index = i * n + j
+                                A_w_threads[index] += val
+
+    def calc_A_with_threads_oo(self, num_threads=6):
+        n = self.n
+        A_w_threads = np.zeros(n * n)
+    
+        rows_per_thread = n // num_threads
+        threads = []
+    
+        for t in range(num_threads):
+            #print('test')
+            start_row = t * rows_per_thread
+            end_row = (t + 1) * rows_per_thread if t < num_threads - 1 else n  # Last thread takes remaining rows
+            thread = threading.Thread(
+                target=self.calculate_matrix_rows,
+                args=(start_row, end_row, A_w_threads)
+            )
+            threads.append(thread)
+            thread.start()
+    
+        for thread in threads:
+            thread.join()
+    
+        self.A_w_threads = A_w_threads.reshape((n, n))
+        print("Calculation succeeded.")
 
         
     #edit before FEM
@@ -625,6 +712,7 @@ def main_V2():
         A_wo_threads = FEM_cls.A
         #time_end_wo_threads = time.time()
         A_w_threads = FEM_cls.A_w_threads
+        #print(A_w_threads)
         #time_end_w_threads = time.time()
         is_equal = np.array_equal(A_wo_threads, A_w_threads)
         #print(A_w_threads)
@@ -645,5 +733,5 @@ def main_V2():
         print('Time with threads: ', time_arr[i][1])
 
 if __name__ == '__main__':
-    main()
-    #main_V2()
+    #main()
+    main_V2()

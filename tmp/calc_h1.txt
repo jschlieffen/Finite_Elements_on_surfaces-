@@ -1,1 +1,8 @@
 h1calc: 1, max = 1 
+h1calc: 0, max = 767 
+h1calc: 10, max = 767 
+h1calc: 20, max = 767 
+h1calc: 30, max = 767 
+h1calc: 40, max = 767 
+h1calc: 50, max = 767 
+h1calc: 60, max = 767 
